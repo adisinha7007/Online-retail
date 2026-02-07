@@ -1,0 +1,290 @@
+Script
+
+Flag for sales, promotion, return, adjustment
+
+ALTER TABLE sales
+ADD TransactionType VARCHAR(30);
+
+
+UPDATE sales
+SET TransactionType =
+  CASE
+    WHEN UnitPrice > 0 AND Quantity > 0 THEN 'SALE'
+    WHEN UnitPrice = 0 AND Quantity > 0 THEN 'PROMOTION'
+    WHEN UnitPrice > 0 AND Quantity < 0 THEN 'RETURN'
+    WHEN UnitPrice = 0 AND Quantity < 0 THEN 'ADJUSTMENT'
+    ELSE 'UNKNOWN'
+  END;
+
+
+Counting null in multiple columns-
+
+SELECT
+  SUM(CASE WHEN InvoiceNo IS NULL THEN 1 ELSE 0 END) AS InvoiceNo_Nulls,
+  SUM(CASE WHEN StockCode IS NULL THEN 1 ELSE 0 END) AS StockCode_Nulls,
+  SUM(CASE WHEN Description IS NULL THEN 1 ELSE 0 END) AS Description_Nulls,
+  SUM(CASE WHEN Quantity IS NULL THEN 1 ELSE 0 END) AS Quantity_Nulls,
+  SUM(CASE WHEN InvoiceDate IS NULL THEN 1 ELSE 0 END) AS InvoiceDate_Nulls,
+  SUM(CASE WHEN UnitPrice IS NULL THEN 1 ELSE 0 END) AS UnitPrice_Nulls,
+  SUM(CASE WHEN CustomerID IS NULL THEN 1 ELSE 0 END) AS CustomerID_Nulls,
+  SUM(CASE WHEN Country IS NULL THEN 1 ELSE 0 END) AS Country_Nulls
+FROM sales;
+
+
+Count Null values-
+
+SELECT
+  SUM(CASE WHEN Description IS NULL THEN 1 ELSE 0 END) AS Description_Nulls,
+  SUM(CASE WHEN CustomerID IS NULL THEN 1 ELSE 0 END) AS CustomerID_Nulls
+FROM OnlineRetailData;
+
+
+Updating description column having nulls-
+
+UPDATE OnlineRetailData
+SET Description = 'UNKNOWN PRODUCT'
+WHERE Description IS NULL;
+
+
+Flag for identifying customers with null Customer ID-
+
+ALTER TABLE OnlineRetailData
+ADD IsCustomerIdentified BIT;
+
+UPDATE OnlineRetailData
+SET IsCustomerIdentified =
+  CASE
+    WHEN CustomerID IS NOT NULL THEN 1
+    ELSE 0
+  END;
+
+
+
+
+
+Flag cancelled items
+
+ALTER TABLE OnlineRetailData
+ADD IsCancelled BIT;
+
+UPDATE OnlineRetailData
+SET IsCancelled =
+  CASE
+    WHEN InvoiceNo LIKE 'C%' THEN 1
+    ELSE 0
+  END;
+
+
+Identifying duplicates 
+
+SELECT
+  InvoiceNo,
+  StockCode,
+  Quantity,
+  UnitPrice,
+  COUNT(*) AS DuplicateCount
+FROM OnlineRetailData
+GROUP BY InvoiceNo, StockCode, Quantity, UnitPrice
+HAVING COUNT(*) > 1;
+
+Flag duplicates-
+
+ALTER TABLE OnlineRetailData
+ADD IsDuplicate BIT;
+
+Update flag-
+
+WITH cte AS (
+  SELECT *,
+         ROW_NUMBER() OVER (
+           PARTITION BY InvoiceNo, StockCode, Quantity, UnitPrice
+           ORDER BY InvoiceDate
+         ) AS rn
+  FROM OnlineRetailData
+)
+UPDATE cte
+SET IsDuplicate = CASE WHEN rn > 1 THEN 1 ELSE 0 END;
+
+
+Create revenue column-
+
+ALTER TABLE OnlineRetailData
+ADD LineRevenue DECIMAL(18,2);
+
+
+UPDATE OnlineRetailData
+SET LineRevenue = Quantity * UnitPrice;
+
+
+Create a clean analytical VIEW-
+
+
+CREATE VIEW CleanOnlineRetail AS
+SELECT *
+FROM OnlineRetailData
+WHERE UnitPrice > 0
+  AND Quantity > 0
+  AND IsDuplicate = 0
+  AND IsCancelled = 0;
+
+
+Which region is generating the highest revenue, and which region is generating the lowest?
+
+
+SELECT
+  Country,
+  SUM(LineRevenue) AS TotalRevenue
+FROM CleanOnlineRetail
+GROUP BY Country
+ORDER BY TotalRevenue DESC;
+
+
+
+
+What is the monthly trend of revenue, which months have faced the biggest increase/decrease?
+
+
+SELECT
+  FORMAT(InvoiceDate, 'yyyy-MM') AS Month,
+  SUM(LineRevenue) AS MonthlyRevenue
+FROM CleanOnlineRetail
+GROUP BY FORMAT(InvoiceDate, 'yyyy-MM')
+ORDER BY Month;
+
+
+
+
+Which months generated the most revenue? Is there a seasonality in sales?
+
+
+
+
+SELECT
+  DATENAME(MONTH, InvoiceDate) AS MonthName,
+  MONTH(InvoiceDate) AS MonthNumber,
+  SUM(LineRevenue) AS Revenue
+FROM CleanOnlineRetail
+GROUP BY DATENAME(MONTH, InvoiceDate), MONTH(InvoiceDate)
+ORDER BY Revenue DESC;
+
+
+
+
+Who are the top customers and how much do they contribute to the total revenue? Is the business dependent on these customers or is the customer base diversified?
+
+
+SELECT
+  CustomerID,
+  SUM(LineRevenue) AS CustomerRevenue
+FROM CleanOnlineRetail
+WHERE IsCustomerIdentified = 1
+GROUP BY CustomerID
+ORDER BY CustomerRevenue DESC;
+
+
+
+
+What is the percentage of customers who are repeating their orders? Are they ordering the same products or different?
+
+
+Top identified customers
+SELECT COUNT(DISTINCT CustomerID) AS TotalCustomers
+FROM CleanOnlineRetail
+WHERE IsCustomerIdentified = 1;
+Repeat customers-
+
+
+SELECT COUNT(*) AS RepeatCustomers
+FROM (
+  SELECT CustomerID
+  FROM CleanOnlineRetail
+  WHERE IsCustomerIdentified = 1
+  GROUP BY CustomerID
+  HAVING COUNT(DISTINCT InvoiceNo) > 1
+) rc;
+
+
+Percentage Repeat customers-
+
+SELECT
+  CAST(RepeatCustomers * 100.0 / TotalCustomers AS DECIMAL(5,2)) AS RepeatCustomerPercentage
+FROM
+(
+  SELECT
+    (SELECT COUNT(DISTINCT CustomerID)
+     FROM CleanOnlineRetail
+     WHERE IsCustomerIdentified = 1) AS TotalCustomers,
+    (SELECT COUNT(*)
+     FROM (
+       SELECT CustomerID
+       FROM CleanOnlineRetail
+       WHERE IsCustomerIdentified = 1
+       GROUP BY CustomerID
+       HAVING COUNT(DISTINCT InvoiceNo) > 1
+     ) r) AS RepeatCustomers
+) x;
+
+
+Are they ordering the same product or different?
+
+SELECT
+  CustomerID,
+  COUNT(DISTINCT StockCode) AS UniqueProductsBought,
+  COUNT(DISTINCT InvoiceNo) AS Orders
+FROM CleanOnlineRetail
+WHERE IsCustomerIdentified = 1
+GROUP BY CustomerID
+HAVING COUNT(DISTINCT InvoiceNo) > 1;
+
+
+For the repeat customers, how long does it take for them to place the next order after being delivered the previous one?
+
+
+WITH OrderDates AS (
+  SELECT
+    CustomerID,
+    InvoiceDate,
+    LEAD(InvoiceDate) OVER (
+      PARTITION BY CustomerID
+      ORDER BY InvoiceDate
+    ) AS NextOrderDate
+  FROM CleanOnlineRetail
+  WHERE IsCustomerIdentified = 1
+)
+SELECT
+  CustomerID,
+  AVG(DATEDIFF(DAY, InvoiceDate, NextOrderDate)) AS AvgDaysBetweenOrders
+FROM OrderDates
+WHERE NextOrderDate IS NOT NULL
+GROUP BY CustomerID;
+
+
+What revenue is being generated from the customers who have ordered more than once?
+
+
+SELECT
+  SUM(LineRevenue) AS RepeatCustomerRevenue
+FROM CleanOnlineRetail
+WHERE CustomerID IN (
+  SELECT CustomerID
+  FROM CleanOnlineRetail
+  WHERE IsCustomerIdentified = 1
+  GROUP BY CustomerID
+  HAVING COUNT(DISTINCT InvoiceNo) > 1
+);
+
+
+Who are the customers that have repeated the most? How much are they contributing to revenue?
+
+
+SELECT
+  CustomerID,
+  COUNT(DISTINCT InvoiceNo) AS Orders,
+  SUM(LineRevenue) AS Revenue
+FROM CleanOnlineRetail
+WHERE IsCustomerIdentified = 1
+GROUP BY CustomerID
+HAVING COUNT(DISTINCT InvoiceNo) > 1
+ORDER BY Orders DESC, Revenue DESC;
+
+
