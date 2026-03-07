@@ -1,0 +1,82 @@
+Online Retail Revenue & Customer Insights Project
+
+📌 Project Overview
+This project analyzes an online retail transaction dataset to help business leaders understand revenue drivers, seasonality, customer behavior, and expansion opportunities.
+The dataset was cleaned using SQL, key business metrics were engineered, and an interactive Tableau dashboard was built to answer strategic questions from the CEO and CMO.
+
+
+
+🎯 Business Objectives
+
+Questions from the CEO
+Which regions generate the highest and lowest revenue?
+What is the monthly revenue trend and seasonality pattern?
+Which months generate the most revenue?
+Who are the top customers and how much do they contribute to revenue?
+
+
+Questions from the CMO
+What percentage of customers are repeat buyers?
+How much revenue comes from repeat customers?
+Who are the customers with the highest repeat purchases?
+
+
+
+🧹 Data Cleaning & Preparation (SQL)
+
+Key cleaning steps performed:
+
+Classified transactions into Sale, Promotion, Return, Adjustment
+Flagged cancelled invoices
+Identified and flagged duplicate transactions
+Flagged missing Customer IDs
+Handled missing product descriptions
+Created a revenue metric (LineRevenue = Quantity × UnitPrice)
+
+
+Built a clean analytical view for Tableau
+
+📊 Tableau Dashboard Metrics
+
+The dashboard includes:
+
+Total Revenue
+Total Customers
+Repeat Customers
+Monthly Revenue Trend
+Revenue by Country / Region
+Seasonality Analysis
+Top Customers by Revenue
+Revenue from Repeat Customers
+
+
+
+🔍 Key Insights
+
+Strong seasonality observed with revenue peaking between September and November.
+Western Europe (Netherlands, Ireland, Germany, France) shows high growth potential outside the UK.
+Revenue is not concentrated in a few customers, indicating a diversified customer base.
+Repeat customers contribute significantly to revenue, highlighting retention opportunities.
+Asia, Africa, and the Americas are underpenetrated markets, representing expansion opportunities.
+
+
+
+📌 Recommendations
+
+Invest marketing and logistics resources in high-performing European markets.
+Prepare inventory and promotional campaigns for Q4 seasonal demand.
+Expand into untapped regions for long-term growth.
+Strengthen repeat customer loyalty programs to increase lifetime value.
+
+
+
+🛠 Tools & Technologies
+
+SQL Server – Data cleaning, transformation, and feature engineering
+Tableau Public – Data visualization and dashboard creation
+CSV/Excel – Data export for visualization
+
+
+🚀 Outcome
+This project demonstrates an end-to-end data analytics workflow:
+ Raw Data → SQL Cleaning → Business Metrics → Executive Dashboard → Strategic Insights
